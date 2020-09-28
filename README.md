@@ -3,7 +3,9 @@ The repository for our EMNLP'20 paper SeqMix: Augmenting Active Sequence Labelin
 
 # Requirements
 pytorch-transformers==1.2.0
+
 torch==1.2.0
+
 seqeval==0.0.5
 tqdm==4.31.1
 nltk==3.4.5
