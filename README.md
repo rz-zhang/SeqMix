@@ -12,7 +12,9 @@ The repository for our EMNLP'20 paper SeqMix: [Augmenting Active Sequence Labeli
 - pytorch_pretrained_bert==0.6.2  
 
 Install the required packages:  
-`pip install -r requirements.txt`
+```
+pip install -r requirements.txt
+```
 
 # Key Parameters
 - `data_dir`: specify the data file, we provide CoNLL-03 dataset here 
@@ -22,7 +24,9 @@ Install the required packages:
 - `active_policy`: query policy of active learning
 
 # Run the active learning part  
-`python active_learn.py`
+```
+python active_learn.py
+```
 
 # Run the seqmix part  
 Will be updated soon
