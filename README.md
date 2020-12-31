@@ -15,11 +15,11 @@ Install the required packages:
 `pip install -r requirements.txt`
 
 # Key Parameters
--`data_dir`: specify the data file, we provide CoNLL-03 dataset here 
--`max_seq_length`: maximum length of each sequence  
--`num_train_epochs`: number of training epochs  
--`train_batch_size`: batch size during model training  
--`active_policy`: query policy of active learning
+- `data_dir`: specify the data file, we provide CoNLL-03 dataset here 
+- `max_seq_length`: maximum length of each sequence  
+- `num_train_epochs`: number of training epochs  
+- `train_batch_size`: batch size during model training  
+- `active_policy`: query policy of active learning
 
 # Run the active learning part  
 `python active_learn.py`
