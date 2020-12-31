@@ -1,6 +1,5 @@
 # SeqMix
-The repository for our EMNLP'20 paper SeqMix: Augmenting Active Sequence Labeling via Sequence Mixup.  
-(The complete repo will be released soon, expected in December.)
+The repository for our EMNLP'20 paper SeqMix: [Augmenting Active Sequence Labeling via Sequence Mixup](https://rongzhizhang.org/pdf/emnlp20_SeqMix.pdf).  
 
 # Requirements
 pytorch-transformers==1.2.0  
