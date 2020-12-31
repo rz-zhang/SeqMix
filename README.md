@@ -10,3 +10,6 @@ nltk==3.4.5
 Flask==1.1.1  
 Flask-Cors==3.0.8  
 pytorch_pretrained_bert==0.6.2  
+
+Install the required packages:
+`pip install -r requirements.txt`
