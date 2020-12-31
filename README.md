@@ -27,11 +27,12 @@ pip install -r requirements.txt
 - `train_batch_size`: batch size during model training  
 - `active_policy`: query policy of active learning
 
-# Run the active learning part  
+# Run
+## Active learning part
 ```
 python active_learn.py
 ```
 
-# Run the seqmix part  
+## Seqmix part  
 Will be updated soon
 
