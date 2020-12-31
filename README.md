@@ -1,5 +1,8 @@
 # SeqMix
-The repository for our EMNLP'20 paper SeqMix: [Augmenting Active Sequence Labeling via Sequence Mixup](https://rongzhizhang.org/pdf/emnlp20_SeqMix.pdf).  
+The repository for our EMNLP'20 paper  
+SeqMix: Augmenting Active Sequence Labeling via Sequence Mixup
+[[paper]](https://rongzhizhang.org/pdf/emnlp20_SeqMix.pdf)  [[slides]](https://rongzhizhang.org/slides/EMNLP20_SeqMix_Slides.pdf)  
+  
 ![Illustration of the three variants of SeqMix](SeqMix.png)
 
 # Requirements
