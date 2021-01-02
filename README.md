@@ -25,7 +25,10 @@ pip install -r requirements.txt
 - `max_seq_length`: maximum length of each sequence  
 - `num_train_epochs`: number of training epochs  
 - `train_batch_size`: batch size during model training  
-- `active_policy`: query policy of active learning
+- `active_policy`: query policy of active learning  
+- `augment_method`: augmenting method  
+- `augment_rate`: augmenting rate  
+- `hyper_alpha`: parameter of Beta distribution
 
 # Run
 ## Active learning part
@@ -43,5 +46,16 @@ python active_learn.py --active_policy=nte
 ```
 
 ## Seqmix part  
-Will be updated soon
+Whole sequence mixup
+```
+python active_learn.py --augment_method=soft
+```
+Sub-sequence mixup
+```
+python active_learn.py --augment_method=slack
+```
+Label-constrained sub-sequence mixup
+```
+python active_learn.py --augment_method=lf
+```
 
