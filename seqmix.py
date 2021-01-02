@@ -1,3 +1,34 @@
+import argparse
+import csv
+import json
+import logging
+import os
+import random
+import sys
+import copy
+import time
+import math
+import numpy as np
+import torch
+import torch.nn.functional as F
+
+from prettytable import PrettyTable
+from torch.autograd import Variable
+from pytorch_transformers import (WEIGHTS_NAME, AdamW, BertConfig,
+                                  BertForTokenClassification, BertTokenizer,
+                                  WarmupLinearSchedule)
+from torch import nn
+from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
+                              TensorDataset)
+from torch.utils.data.distributed import DistributedSampler
+from tqdm import tqdm, trange
+from seqeval.metrics import classification_report
+
+from model import Ner
+from data_load import readfile, NerProcessor, convert_examples_to_features
+from pytorch_pretrained_bert import OpenAIGPTTokenizer, OpenAIGPTModel, OpenAIGPTLMHeadModel
+from active_learn import nte_sampling, random_sampling, uncertainty_sampling
+
 '''Get Word Embedding'''
 def get_word_embedding(sp_output_dir=None):
   model = Ner.from_pretrained(sp_output_dir)
@@ -14,22 +45,6 @@ def get_word_embedding(sp_output_dir=None):
     ebd2wordidx[tuple(v)] = k
 
   return wordidx2ebd, ebd2wordidx
-
-sp_output_dir = 'out_path/'
-wordidx2ebd, ebd2wordidx = get_word_embedding(sp_output_dir)
-mydict_values = np.array(list(wordidx2ebd.values()))
-mydict_keys = np.array(list(wordidx2ebd.keys()))
-
-
-'''Scoring'''
-import math
-import torch
-from pytorch_pretrained_bert import OpenAIGPTTokenizer, OpenAIGPTModel, OpenAIGPTLMHeadModel
-# Load pre-trained model (weights)
-gpt_model = OpenAIGPTLMHeadModel.from_pretrained('openai-gpt')
-gpt_model.eval()
-# Load pre-trained model tokenizer (vocabulary)
-gpt_tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
 
 def x_reconstruct(sequence):
   '''
@@ -142,11 +157,6 @@ def soft_pair_index_generator(equal_len_index_list, pair_num, valid_tag_bar):
     temp_len = random.choice(len_range)
     pair_index_list.append(random.sample(list(equal_len_index_list[temp_len-1]),2))
   return pair_index_list
-
-window_size = 5
-valid_tag_bar = 3
-mix_len = 5
-GUID_COUNT = 14041
 
 
 def lf_mixup(mixdata, sentence1_idx, start_idx1, sentence2_idx, start_idx2, hyper_lambda):
@@ -466,7 +476,7 @@ def soft_augment(candidate_data=None, num_mixup=None, hyper_alpha=8, score_limit
   print('{} extra samples are generated, the time cost is {} s'.format(new_sample_count, time_end - time_start))
   return mixup_data, mixup_label, new_sample_count
 
-def active_augment_learn(init_flag=None, train_data=train_examples, num_initial=200, 
+def active_augment_learn(init_flag=None, train_data=None, num_initial=200, 
               active_policy=uncertainty_sampling, augment_method=lf_augment,
               num_query=5, num_sample=[100, 100, 100, 100, 100],  
               augment_rate=0.2, augment_decay=1, 
@@ -564,3 +574,150 @@ def active_augment_learn(init_flag=None, train_data=train_examples, num_initial=
     save_result(prefix=prefix, func_paras=func_paras, report=report, table=print_table)
 
   return model
+
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bert_model", type=str, default='bert-base-cased')
+    parser.add_argument("--data_dir", type=str, default='data/')
+    parser.add_argument("--do_eval", type=bool, default=True)
+    parser.add_argument("--do_train", type=bool, default=True)
+    parser.add_argument("--max_seq_length", type=int, default=128)
+    parser.add_argument("--num_train_epochs", type=int, default=10)
+    parser.add_argument("--task_name", type=str, default='ner')
+    parser.add_argument("--output_dir", type=str, default='CoNLL/result')
+    parser.add_argument("--warmup_proportion", type=float, default=0.1)
+    parser.add_argument("--prefix", type=str, default='file_save_name')
+
+    # keep as default
+    parser.add_argument("--server_ip", type=str, default='')
+    parser.add_argument("--server_port", type=str, default='')
+    parser.add_argument("--local_rank", type=int, default=-1)
+    parser.add_argument("--no_cuda", type=bool, default=False)
+    parser.add_argument("--gradient_accumulation_steps", type=int, default=1)
+    parser.add_argument("--train_batch_size", type=int, default=32)
+    parser.add_argument("--seed", type=int, default=2020)
+    parser.add_argument("--do_lower_case", type=bool, default=False)
+    parser.add_argument("--weight_decay", type=float, default=0.01)
+    parser.add_argument("--adam_epsilon", type=float, default=1e-08)
+    parser.add_argument("--learning_rate", type=float, default=5e-05)
+    parser.add_argument("--fp16", type=bool, default=False)
+    parser.add_argument("--fp16_opt_level", type=str, default='O1')
+    parser.add_argument("--eval_on", type=str, default='dev')
+    parser.add_argument("--eval_batch_size", type=int, default=8)
+    parser.add_argument("--max_grad_norm", type=float, default=1.0)
+
+
+    args = parser.parse_args()
+
+    sp_output_dir = 'out_conll/'
+    wordidx2ebd, ebd2wordidx = get_word_embedding(sp_output_dir)
+    mydict_values = np.array(list(wordidx2ebd.values()))
+    mydict_keys = np.array(list(wordidx2ebd.keys()))
+
+    '''Scoring'''
+    # Load pre-trained model (weights)
+    gpt_model = OpenAIGPTLMHeadModel.from_pretrained('openai-gpt')
+    gpt_model.eval()
+    # Load pre-trained model tokenizer (vocabulary)
+    gpt_tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
+
+    window_size = 5
+    valid_tag_bar = 3
+    mix_len = 5
+    GUID_COUNT = 14041
+
+    logging.basicConfig(format='%(asctime)s-%(levelname)s-%(name)s-%(message)s', datefmt='%m/%d/%Y %H:%M:%S', level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    if args.server_ip and args.server_port:
+      # Distant debugging - see https://code.visualstudio.com/docs/python/debugging#_attach-to-a-local-script
+      print("Waiting for debugger attach")
+      ptvsd.enable_attach(address=(args.server_ip, args.server_port), redirect_output=True)
+      ptvsd.wait_for_attach()
+
+    if args.local_rank == -1 or args.no_cuda:
+      device = torch.device("cuda" if torch.cuda.is_available() and not args.no_cuda else "cpu")
+      #n_gpu = torch.cuda.device_count()
+      n_gpu = 1
+    else:
+      torch.cuda.set_device(args.local_rank)
+      device = torch.device("cuda", args.local_rank)
+      n_gpu = 1
+      # Initializes the distributed backend which will take care of sychronizing nodes/GPUs
+      torch.distributed.init_process_group(backend='nccl')
+
+    logger.info("device: {} n_gpu: {}, distributed training: {}, 16-bits training: {}".format(
+        device, n_gpu, bool(args.local_rank != -1), args.fp16))
+
+    if args.gradient_accumulation_steps < 1:
+      raise ValueError("Invalid gradient_accumulation_steps parameter: {}, should be >= 1".format(args.gradient_accumulation_steps))
+    args.train_batch_size = args.train_batch_size // args.gradient_accumulation_steps
+
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+
+    if not args.do_train and not args.do_eval:
+      raise ValueError("At least one of `do_train` or `do_eval` must be True.")
+    if not os.path.exists(args.output_dir):
+      os.makedirs(args.output_dir)
+
+    processor = NerProcessor()
+    label_list = processor.get_labels()
+    num_labels = len(label_list) + 1
+    tokenizer = BertTokenizer.from_pretrained(args.bert_model, do_lower_case=args.do_lower_case)
+
+    train_examples = None
+    num_train_optimization_steps = 0 
+    if args.do_train:
+      train_examples = processor.get_train_examples(args.data_dir)
+      num_train_optimization_steps = int(len(train_examples)/args.train_batch_size/args.gradient_accumulation_steps)*args.num_train_epochs
+      if args.local_rank != -1:
+        num_train_optimization_steps = num_train_optimization_steps // torch.distributed.get_world_size()
+
+    if args.do_eval:
+      if args.eval_on == 'dev':
+        dev_examples = processor.get_dev_examples(args.data_dir)
+      if args.eval_on == 'test':
+        dev_examples = processor.get_test_examples(args.data_dir)
+
+    if args.local_rank not in [-1, 0]:
+        torch.distributed.barrier()
+
+    # prepare model
+    config = BertConfig.from_pretrained(args.bert_model, num_labels=num_labels, finetuning_task=args.task_name)
+    model = Ner.from_pretrained(args.bert_model, from_tf = False, config = config)
+
+    if args.local_rank == 0:
+      torch.distributed.barrier()  # Make sure only the first process in distributed training will download model & vocab
+
+    model.to(device)
+    param_optimizer = list(model.named_parameters())
+    no_decay = ['bias','LayerNorm.weight']
+    optimizer_grouped_parameters = [
+        {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': args.weight_decay},
+        {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
+        ]
+
+    warmup_steps = int(args.warmup_proportion * num_train_optimization_steps)
+    optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
+    scheduler = WarmupLinearSchedule(optimizer, warmup_steps=warmup_steps, t_total=num_train_optimization_steps)
+
+    # For our experiment, the following can be ignored
+    if args.fp16:
+      try:
+        from apex import amp
+      except ImportError:
+        raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use fp16 training.")
+      model, optimizer = amp.initialize(model, optimizer, opt_level=args.fp16_opt_level)
+
+    # multi-gpu training (should be after apex fp16 initialization)
+    if n_gpu > 1:
+      model = torch.nn.DataParallel(model)
+
+    if args.local_rank != -1:
+      model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
+
+
+    soft_model = active_augment_learn(init_flag=False, train_data=train_examples, augment_rate=0.2, hyper_alpha=8, active_policy=nte_sampling, augment_method=slack_augment, prefix='dev_ste_slack',Epochs=10)
