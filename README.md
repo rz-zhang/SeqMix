@@ -29,8 +29,17 @@ pip install -r requirements.txt
 
 # Run
 ## Active learning part
+Random Sampling  
 ```
-python active_learn.py
+python active_learn.py --active_policy=random
+```
+Least Confidence Sampling  
+```
+python active_learn.py --active_policy=lc
+```
+Normalized Token Entropy sampling  
+```
+python active_learn.py --active_policy=nte
 ```
 
 ## Seqmix part  
