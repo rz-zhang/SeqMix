@@ -6,6 +6,7 @@ import os
 import random
 import sys
 import copy
+import math
 import time
 import numpy as np
 import torch
@@ -395,7 +396,7 @@ def active_eval(active_data_loader=None, model=None):
 
 
 def active_learn(init_flag=None, train_data=None, num_initial=200, 
-                 active_policy=uncertainty_sampling, num_query=5, num_sample=[100, 100, 100, 100, 100], 
+                 active_policy=None, num_query=5, num_sample=[100, 100, 100, 100, 100], 
                  dev_data=None, fit_only_new_data=False, Epochs=10, prefix='Active', args=None):
   '''
   Implement active learning initializaiton and learning loop
@@ -518,6 +519,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default='CoNLL/result')
     parser.add_argument("--warmup_proportion", type=float, default=0.1)
     parser.add_argument("--prefix", type=str, default='file_save_name')
+    parser.add_argument("--active_policy", type=str, default='nte')
 
     # keep as default
     parser.add_argument("--server_ip", type=str, default='')
@@ -631,5 +633,11 @@ if __name__ == "__main__":
     if args.local_rank != -1:
       model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
 
+    if args.active_policy=='random':
+      active_policy = random_sampling
+    if args.active_policy=='lc':
+      active_policy = uncertainty_sampling
+    if args.active_policy=='nte':
+      active_policy = nte_sampling
 
-    model = active_learn(init_flag=False, train_data=train_examples, dev_data=dev_examples, prefix=args.prefix, Epochs=args.num_train_epochs, args=args)
+    model = active_learn(init_flag=False, train_data=train_examples, dev_data=dev_examples, active_policy=active_policy, prefix=args.prefix, Epochs=args.num_train_epochs, args=args)
