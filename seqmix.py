@@ -589,6 +589,12 @@ if __name__ == "__main__":
     parser.add_argument("--output_dir", type=str, default='CoNLL/result')
     parser.add_argument("--warmup_proportion", type=float, default=0.1)
     parser.add_argument("--prefix", type=str, default='file_save_name')
+    parser.add_argument("--active_policy", type=str, default='nte')
+    parser.add_argument("--augment_method", type=str, default='soft')
+    parser.add_argument("--augment_rate", type=float, default=0.2)
+    parser.add_argument("--hyper_alpha", type=float, default=8)
+
+
 
     # keep as default
     parser.add_argument("--server_ip", type=str, default='')
@@ -719,5 +725,18 @@ if __name__ == "__main__":
     if args.local_rank != -1:
       model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.local_rank], output_device=args.local_rank, find_unused_parameters=True)
 
+    if args.active_policy=='random':
+      active_policy = random_sampling
+    if args.active_policy=='lc':
+      active_policy = uncertainty_sampling
+    if args.active_policy=='nte':
+      active_policy = nte_sampling
 
-    soft_model = active_augment_learn(init_flag=False, train_data=train_examples, augment_rate=0.2, hyper_alpha=8, active_policy=nte_sampling, augment_method=slack_augment, prefix='dev_ste_slack',Epochs=10)
+    if args.augment_method=='lf':
+      augment_method = lf_augment
+    if args.augment_method=='slack':
+      augment_method = slack_augment
+    if args.augment_method=='soft':
+      augment_method = soft_augment
+
+    soft_model = active_augment_learn(init_flag=False, train_data=train_examples, augment_rate=args.augment_rate, hyper_alpha=args.hyper_alpha, active_policy=active_policy, augment_method=augment_method, prefix=args.prefix, Epochs=10)
