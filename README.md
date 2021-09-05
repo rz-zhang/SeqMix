@@ -45,7 +45,7 @@ Normalized Token Entropy sampling
 python active_learn.py --active_policy=nte
 ```
 
-## Seqmix part (to be updated) 
+## Seqmix part
 Whole sequence mixup
 ```
 python active_learn.py --augment_method=soft
